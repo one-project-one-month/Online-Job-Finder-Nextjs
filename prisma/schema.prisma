@@ -1,14 +1,114 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "postgresql"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @unique  // Clerk user ID (not a UUID)
+  firstName String
+  lastName  String
+  email     String    @unique
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+
+  // Relations
+  companies   Company[]
+  jobs        Job[]
+  applications Application[]
+  reviews     Review[]
+}
+
+model Company {
+  id          String    @id @default(uuid())  // UUID
+  name        String    @unique
+  description String?
+  industry    String?
+  location    String?
+  website     String?
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  jobs        Job[]
+  reviews     Review[]  
+}
+
+model Job {
+  id          String    @id @default(uuid())  // UUID
+  title       String
+  description String
+  location    String?
+  salary      Decimal?
+  jobType     JobType
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  postedById  String
+  postedBy    User      @relation(fields: [postedById], references: [id], onDelete: Cascade)
+  
+  // Saved by users  
+  savedBy     String[]  // Array of Clerk user IDs
+
+  applications Application[]
+}
+
+model Application {
+  id          String    @id @default(uuid())  
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  jobId       String
+  job         Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicantId String
+  applicant   User      @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  resume      String?   // URL to resume file
+  status      ApplicationStatus @default(PENDING)
+}
+
+model Review {
+  id          String    @id @default(uuid())  
+  createdAt   DateTime  @default(now())
+
+  reviewerId  String
+  reviewer    User      @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  entityId    String
+  entityType  ReviewEntityType
+  rating      Int       @default(1)  // Min: 1, Max: 5 (validate in API)
+  comment     String?
+
+  // Relation to company
+  company     Company?  @relation( fields: [entityId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  USER
+  COMPANY
+  ADMIN
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  REMOTE
+  INTERNSHIP
+}
+
+enum ApplicationStatus {
+  PENDING
+  REJECTED
+  ACCEPTED
+}
+
+enum ReviewEntityType {
+  USER
+  COMPANY
 }
